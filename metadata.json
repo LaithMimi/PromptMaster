@@ -1,0 +1,5 @@
+{
+  "name": "Prompt Perfect",
+  "description": "A game where players compete to write the best prompts to recreate a target image. Players are scored based on the similarity of their generated image to the target.",
+  "requestFramePermissions": []
+}
