@@ -40,6 +40,32 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onCreateRound }) => {
     setTargets(newTargets);
   };
 
+  const handleImageUpload = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        setTargets(prev => prev.map((t, i) => i === index ? { ...t, error: "Please select a valid image file." } : t));
+        return;
+    }
+
+    setTargets(prev => prev.map((t, i) => i === index ? { ...t, error: null } : t));
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        const imageUrl = event.target?.result as string;
+        if (imageUrl) {
+            setTargets(prev => prev.map((t, i) => i === index ? { ...t, imageUrl, error: null } : t));
+        } else {
+            setTargets(prev => prev.map((t, i) => i === index ? { ...t, error: "Failed to read image file." } : t));
+        }
+    };
+    reader.onerror = () => {
+        setTargets(prev => prev.map((t, i) => i === index ? { ...t, error: "Error reading file." } : t));
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleGenerateImage = async (index: number, promptOverride?: string) => {
     const promptToUse = promptOverride !== undefined ? promptOverride : targets[index].groundTruthPrompt;
 
@@ -81,7 +107,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onCreateRound }) => {
 
   const handleSubmit = async () => {
     if (!isFormReady) {
-      setCreationError("Please fill all fields and generate all target images before creating the round.");
+      setCreationError("Please fill all fields and generate or upload all target images before creating the round.");
       return;
     }
     setCreationError(null);
@@ -178,31 +204,45 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onCreateRound }) => {
                   placeholder="A detailed, winning prompt..."
                 ></textarea>
               </div>
-              <div className="aspect-square bg-gray-900 rounded-lg flex items-center justify-center overflow-hidden text-center p-2 mt-auto">
-                {target.isRandomizing ? (
-                    <div className="flex flex-col items-center gap-2 text-gray-400">
-                        <LoadingSpinner />
-                        <span className="text-xs">Coming up with an idea...</span>
-                    </div>
-                ) : target.isGenerating ? (
-                    <div className="flex flex-col items-center gap-2 text-gray-400">
-                        <LoadingSpinner />
-                        <span className="text-xs">Generating image...</span>
-                    </div>
-                ) : target.imageUrl ? (
-                  <img src={target.imageUrl} alt={`Generated for target ${index + 1}`} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-xs text-gray-500">Image will appear here</span>
-                )}
+              <div className="mt-auto space-y-3">
+                <div className="aspect-square bg-gray-900 rounded-lg flex items-center justify-center overflow-hidden text-center p-2">
+                    {target.isRandomizing ? (
+                        <div className="flex flex-col items-center gap-2 text-gray-400">
+                            <LoadingSpinner />
+                            <span className="text-xs">Coming up with an idea...</span>
+                        </div>
+                    ) : target.isGenerating ? (
+                        <div className="flex flex-col items-center gap-2 text-gray-400">
+                            <LoadingSpinner />
+                            <span className="text-xs">Generating image...</span>
+                        </div>
+                    ) : target.imageUrl ? (
+                      <img src={target.imageUrl} alt={`Target ${index + 1}`} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-xs text-gray-500">Generate or upload an image</span>
+                    )}
+                </div>
+                {target.error && <p className="text-red-400 text-xs"><ErrorIcon className="inline w-4 h-4 mr-1" />{target.error}</p>}
+                <div className="grid grid-cols-2 gap-2">
+                    <button
+                        onClick={() => handleGenerateImage(index)}
+                        disabled={target.isGenerating || target.isRandomizing || !target.groundTruthPrompt}
+                        className="w-full text-sm bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-600 text-white font-bold py-2 rounded-lg transition-colors"
+                    >
+                        Generate
+                    </button>
+                    <label className={`w-full text-sm text-white font-bold py-2 rounded-lg transition-colors text-center cursor-pointer relative ${target.isGenerating || target.isRandomizing ? 'bg-gray-600 cursor-not-allowed' : 'bg-gray-500 hover:bg-gray-400'}`}>
+                        Upload
+                        <input
+                            type="file"
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            accept="image/png, image/jpeg, image/webp"
+                            onChange={(e) => handleImageUpload(index, e)}
+                            disabled={target.isGenerating || target.isRandomizing}
+                        />
+                    </label>
+                </div>
               </div>
-               {target.error && <p className="text-red-400 text-xs mt-1"><ErrorIcon className="inline w-4 h-4 mr-1" />{target.error}</p>}
-              <button
-                onClick={() => handleGenerateImage(index)}
-                disabled={target.isGenerating || target.isRandomizing || !target.groundTruthPrompt}
-                className="w-full text-sm bg-indigo-600 hover:bg-indigo-500 disabled:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"
-              >
-                {target.isGenerating ? 'Generating...' : target.imageUrl ? 'Re-generate Image' : 'Generate Image'}
-              </button>
             </div>
           ))}
         </div>
@@ -211,7 +251,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onCreateRound }) => {
       <div className="bg-gray-800/50 p-6 rounded-xl border border-gray-700">
         <h2 className="text-xl font-semibold mb-4 text-gray-200">Finalize Round</h2>
         <p className="text-sm text-gray-400 mb-4">
-          Ensure all round details are correct and all 5 target images have been generated. Once created, the round will become live for all players.
+          Ensure all round details are correct and all 5 target images have been generated or uploaded. Once created, the round will become live for all players.
         </p>
          {creationError && <p className="text-red-400 text-sm my-2 p-3 bg-red-500/10 rounded-lg"><ErrorIcon className="inline w-5 h-5 mr-2" />{creationError}</p>}
         <button 

@@ -13,7 +13,6 @@ export enum Role {
 
 export enum TargetState {
   IDLE = 'IDLE',
-  GENERATING = 'GENERATING',
   SCORING = 'SCORING',
   SCORED = 'SCORED',
   ERROR = 'ERROR',
@@ -29,7 +28,6 @@ export interface Target {
 export interface Attempt {
   targetId: number;
   userPrompt: string;
-  generatedImageUrl: string;
   score: number;
   feedback: string;
 }

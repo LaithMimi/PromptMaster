@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { Target, Attempt, TargetState } from '../types';
-import { generateImage, scorePrompts, getPromptSuggestions } from '../services/geminiService';
+import { scorePrompts, getPromptSuggestions } from '../services/geminiService';
 import { LoadingSpinner, ErrorIcon, LightbulbIcon } from './icons';
 
 interface TargetCardProps {
@@ -15,7 +16,6 @@ const TargetCard: React.FC<TargetCardProps> = ({ target, attempt, onAttemptCompl
   const [userPrompt, setUserPrompt] = useState('');
   const [cardState, setCardState] = useState<TargetState>(TargetState.IDLE);
   const [error, setError] = useState<string | null>(null);
-  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [score, setScore] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   
@@ -26,31 +26,26 @@ const TargetCard: React.FC<TargetCardProps> = ({ target, attempt, onAttemptCompl
   useEffect(() => {
     if (attempt) {
       setUserPrompt(attempt.userPrompt);
-      setGeneratedImageUrl(attempt.generatedImageUrl);
       setScore(attempt.score);
       setFeedback(attempt.feedback);
       setCardState(TargetState.SCORED);
     }
   }, [attempt]);
 
-  const handleGenerateAndScore = async () => {
+  const handleSubmitPrompt = async () => {
     if (userPrompt.length < 8) {
       setError('Prompt must be at least 8 characters long.');
       return;
     }
     setError(null);
-    setCardState(TargetState.GENERATING);
+    setCardState(TargetState.SCORING);
     setSuggestions([]); // Clear suggestions on attempt
 
     try {
-      const imageUrl = await generateImage(userPrompt);
-      setGeneratedImageUrl(imageUrl);
-      setCardState(TargetState.SCORING);
-
       const { score, feedback } = await scorePrompts(userPrompt, target.groundTruthPrompt);
       setScore(score);
       setFeedback(feedback);
-      onAttemptComplete(target.id, { userPrompt, generatedImageUrl: imageUrl, score, feedback });
+      onAttemptComplete(target.id, { userPrompt, score, feedback });
       setCardState(TargetState.SCORED);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred.';
@@ -80,7 +75,7 @@ const TargetCard: React.FC<TargetCardProps> = ({ target, attempt, onAttemptCompl
     }
   };
 
-  const isProcessing = cardState === TargetState.GENERATING || cardState === TargetState.SCORING;
+  const isProcessing = cardState === TargetState.SCORING;
 
   const getScoreColor = (s: number | null) => {
     if (s === null) return 'text-gray-400';
@@ -106,23 +101,13 @@ const TargetCard: React.FC<TargetCardProps> = ({ target, attempt, onAttemptCompl
       </div>
 
       <div className="p-4 flex flex-col flex-grow">
-        {generatedImageUrl && cardState !== TargetState.GENERATING && (
-          <div className="relative mb-4 aspect-square rounded-lg overflow-hidden border-2 border-gray-600">
-             <img src={generatedImageUrl} alt="Generated image" className="w-full h-full object-cover" />
-             {cardState === TargetState.SCORING && (
-               <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-2 text-white">
-                  <LoadingSpinner />
-                  <span>SCORING...</span>
-               </div>
-             )}
-             {score !== null && (
-               <div className={`absolute top-2 right-2 px-3 py-1 font-bold rounded-full text-lg bg-gray-900/80 backdrop-blur-sm ${getScoreColor(score)}`}>
-                  {score}%
-               </div>
-             )}
-          </div>
+        {score !== null && (
+            <div className="mb-4 text-center">
+                <p className="text-sm text-gray-400">Your Score</p>
+                <p className={`text-5xl font-bold ${getScoreColor(score)}`}>{score}%</p>
+            </div>
         )}
-
+       
         {showGroundTruth && (
             <div className="mb-4 p-2 bg-pink-500/10 border-l-4 border-pink-500 text-pink-200 text-xs rounded">
                 <p className="font-bold">Ground Truth:</p>
@@ -171,11 +156,11 @@ const TargetCard: React.FC<TargetCardProps> = ({ target, attempt, onAttemptCompl
         {error && <p className="text-red-400 text-xs mt-1 animate-pulse"><ErrorIcon className="inline w-4 h-4 mr-1" />{error}</p>}
         
         <button
-          onClick={handleGenerateAndScore}
+          onClick={handleSubmitPrompt}
           disabled={isProcessing || cardState === TargetState.SCORED}
           className="w-full mt-2 bg-indigo-600 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-500 transition-all duration-200 disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
-          {cardState === TargetState.SCORED ? 'Scored' : 'Generate & Score'}
+          {cardState === TargetState.SCORED ? 'Scored' : 'Submit & Score'}
         </button>
       </div>
     </div>
